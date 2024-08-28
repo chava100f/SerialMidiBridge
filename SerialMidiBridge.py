@@ -188,6 +188,8 @@ midioutPorts = []
 def getMidiPorts():
     global midiinPorts, midioutPorts
 
+    print("Entering getMidiPorts")  # Debugging statement
+
     midiinPorts  = midiin.get_ports()
     midioutPorts = midiout.get_ports()
 
