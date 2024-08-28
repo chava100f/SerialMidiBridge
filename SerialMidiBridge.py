@@ -155,6 +155,9 @@ def startSerialMidiServer(serial_port_name, serial_baud, portIn, portOut):
 
 def stopSerialMidiServer():
     global serialPort, midiinPort, midioutPort, midi_ready, bridgeActive
+
+    # print('Stoping1: "'+str(serialPort)+'" "'+str(midi_ready)+'" "'+str(bridgeActive)+'" "')
+    # print('Stoping2: "'+str(midiin.isPortOpen())+'" "'+str(midiout.isPortOpen())+'"')
     bridgeActive = False
     midi_ready   = False
     del serialPort
@@ -168,9 +171,12 @@ def setSerialPortnames():
     global spStrings, spPortnames
     spStrings   = []
     spPortnames = []
-    for n, (portname, desc, hwid) in enumerate(sorted(serial.tools.list_ports.comports())):
-        spStrings.append(u'{} - {}'.format(portname, desc))
-        spPortnames.append(portname)
+    try:
+        for n, (portname, desc, hwid) in enumerate(sorted(serial.tools.list_ports.comports())):
+            spStrings.append(u'{} - {}'.format(portname, desc))
+            spPortnames.append(portname)
+    except serial.SerialException as se:
+        popupError("Serial port reading portnames error")
 
 bdValues = []
 def setBaudrates():
@@ -181,6 +187,7 @@ midiinPorts  = []
 midioutPorts = []
 def getMidiPorts():
     global midiinPorts, midioutPorts
+
     midiinPorts  = midiin.get_ports()
     midioutPorts = midiout.get_ports()
 
