@@ -6,11 +6,15 @@ import threading
 import logging
 import time
 import customtkinter
+import platform
+import gc
 # 2021-03-26 Ruud Mulder
 # Gui version of the Serial MIDI Bridge script from https://github.com/raspy135/serialmidi.
 # The functionality is the serialmidi script, I just added the Gui.
 #
 # N.B. midiin = MIDI to Serial; midiout = Serial to MIDI
+
+os_system = platform.system()
 
 bridgeActive = False # set to True when bridge is active
 logging.basicConfig(level = logging.DEBUG) # output all messages
@@ -31,7 +35,6 @@ app = customtkinter.CTk()
 
 
 font = customtkinter.CTkFont(size=20, weight="normal")
-
 
 def popupError(s):
     dialog = customtkinter.CTkToplevel()
@@ -133,6 +136,11 @@ def startSerialMidiServer(serial_port_name, serial_baud, portIn, portOut):
     bridgeActive = True
     try:
         serialPort  = serial.Serial(serial_port_name,serial_baud)
+
+        if os_system == 'Windows' and midiinPort:
+            midiin.open_virtual_port("SerialMIDI_in")
+            midiout.open_virtual_port("SerialMIDI_out")
+
         midiinPort  = midiin.open_port(portIn)
         midioutPort = midiout.open_port(portOut)
         midi_ready  = True
@@ -156,13 +164,21 @@ def startSerialMidiServer(serial_port_name, serial_baud, portIn, portOut):
 def stopSerialMidiServer():
     global serialPort, midiinPort, midioutPort, midi_ready, bridgeActive
 
-    # print('Stoping1: "'+str(serialPort)+'" "'+str(midi_ready)+'" "'+str(bridgeActive)+'" "')
-    # print('Stoping2: "'+str(midiin.isPortOpen())+'" "'+str(midiout.isPortOpen())+'"')
     bridgeActive = False
     midi_ready   = False
     del serialPort
-    midiinPort.close_port()
-    midioutPort.close_port()
+    
+    # midiinPort.close_port()
+    if midiin.is_port_open():
+        midiin.close_port()
+    elif midiin.is_virtual():
+        midiin.close_virtual_port()
+    
+    # midioutPort.close_port()
+    if midiout.is_port_open():
+        midiout.close_port()
+    elif midiout.is_virtual():
+        midiout.close_virtual_port()
 
 spStrings   = []
 spPortnames = []
@@ -186,12 +202,53 @@ def setBaudrates():
 midiinPorts  = []
 midioutPorts = []
 def getMidiPorts():
-    global midiinPorts, midioutPorts
+    global midiinPorts, midioutPorts, os_system, midiin, midiout
+
+    print("Cleaning MidiPorts Which doesn't really function ")  # Debugging statement
+
+    midiinPorts.clear()
+    midioutPorts.clear()
+
+    midiin.delete()
+    gc.collect()
+    time.sleep(0.1)
+    midiin = ""
+    midiin = rtmidi.MidiIn()
+
+    midiout.delete()
+    gc.collect()
+    time.sleep(0.1)
+    midiout = ""
+    midiout = rtmidi.MidiOut()
 
     print("Entering getMidiPorts")  # Debugging statement
 
     midiinPorts  = midiin.get_ports()
+
+    if len(midiinPorts) > 0 :
+        midiinPorts = midiinPorts
+    elif len(midiinPorts) == 0 and os_system == 'Windows': # Windows
+        midiinPorts = ["No MIDI ports available, install or start loopMIDI"]
+    elif len(midiinPorts) == 0 and os_system == 'Linux': # Linux
+        midiinPorts = ["No MIDI ports available, a virtual Midi port will be created"]
+    elif len(midiinPorts) == 0 and os_system == 'Darwin': # MacOS
+        midiinPorts = ["No MIDI ports available, a virtual Midi port will be created"]
+    else:
+        midiinPorts = ["No MIDI ports available"]
+    
     midioutPorts = midiout.get_ports()
+
+    if len(midioutPorts) > 0 :
+        midioutPorts = midioutPorts
+    elif len(midioutPorts) == 0 and os_system == 'Windows': # Windows
+        midioutPorts = ["No MIDI ports available, install or start loopMIDI"]
+    elif len(midioutPorts) == 0 and os_system == 'Linux': # Linux
+        midioutPorts = ["No MIDI ports available, a virtual Midi port will be created"]
+    elif len(midioutPorts) == 0 and os_system == 'Darwin': # MacOS
+        midioutPorts = ["No MIDI ports available, a virtual Midi port will be created"]
+    else:
+        midioutPorts = ["No MIDI ports available"]
+    
 
 setSerialPortnames()
 setBaudrates()
@@ -246,12 +303,22 @@ def scanports():
     spCombo.configure(values=spStrings, width=wc)
     spCombo.set(sel)
     bdCombo.configure(width=wc)
+
     sel = s2mCombo.get()
     s2mCombo.configure(values=midiinPorts, width=wc)
-    s2mCombo.set(sel)
+    # check if selected value is still in list
+    if sel not in midiinPorts:
+        s2mCombo.set(midiinPorts[0])
+    else:
+        s2mCombo.set(sel)
+
     sel = m2sCombo.get()
     m2sCombo.configure(values=midioutPorts, width=wc)
-    m2sCombo.set(sel)
+    # check if selected value is still in list
+    if sel not in midioutPorts:
+        m2sCombo.set(midioutPorts[0])
+    else:
+        m2sCombo.set(sel)
 
 def exKey():
     global bridgeActive  # Declare 'bridgeActive' as a global variable
@@ -281,6 +348,16 @@ def stKey():
             bdi  = bdValues.index(int(bdCombo.get()))
             s2mi = midiinPorts.index(s2mCombo.get())
             m2si = midioutPorts.index(m2sCombo.get())
+            
+            # check if midi ports are not the same
+
+            # check if there is not a valid midi port selected
+            if len(midiinPorts) > 0 and midiinPorts[0].startswith('No MIDI ports available'):
+                raise Exception('Not Select valid MIDI IN ports, please push the button SCAN PORTS')
+            
+            if len(midioutPorts) > 0 and midioutPorts[0].startswith('No MIDI ports available'):
+                raise Exception('Not Select valid MIDI OUT ports, please push the button SCAN PORTS')
+            
             # all values chosen, now start server
             print('Starting: "'+spPortnames[spi]+'" "'+str(bdValues[bdi])+'" "'+midiinPorts[s2mi]+'" "'+midioutPorts[m2si]+'"')
             ok = startSerialMidiServer(spPortnames[spi], bdValues[bdi], s2mi, m2si)
