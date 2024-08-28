@@ -1,3 +1,7 @@
+### Notification:
+
+The development on this branch has stopped. Development continues (with a more modern GUI that will work on new MacOs versions) on: [https://github.com/chava100f/SerialMidiBridge](https://github.com/chava100f/SerialMidiBridge).
+
 ### SerialMidiBridge
 
 This is a replacement for [https://github.com/projectgus/hairless-midiserial](https://github.com/projectgus/hairless-midiserial) that stopped working with OS X Catalina.
